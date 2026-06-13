@@ -1,248 +1,223 @@
-import streamlit as st
-import whisper
+from flask import Flask, render_template, request, send_file
+
 import yt_dlp
-import os
+import whisper
 
 from gtts import gTTS
 from moviepy import VideoFileClip, AudioFileClip
+
 from deep_translator import GoogleTranslator
 
-
-st.title("🎬 AI English → Tamil YouTube Video Dubber")
-
-
-url = st.text_input(
-    "Paste YouTube URL"
-)
+import os
 
 
-if st.button("Start Tamil Dubbing"):
+app = Flask(__name__)
 
 
-    if url:
+@app.route("/")
+def home():
 
-
-        # 1. Download YouTube Video
-
-
-        st.info(
-            "Downloading video..."
-        )
-
-
-        if os.path.exists("video.mp4"):
-            os.remove("video.mp4")
+    return render_template("index.html")
 
 
 
-        options = {
 
 
-            "format": "best[ext=mp4]/best",
+@app.route("/dub", methods=["POST"])
+def dub_video():
 
 
-            "outtmpl": "video.mp4",
+    url = request.form["url"]
 
 
-            "noplaylist": True,
+    # 1. Download YouTube video
+
+    print("Downloading...")
 
 
-            "quiet": False,
+    options = {
 
+        "format": "mp4",
+        "outtmpl": "video.mp4",
 
-            "nocheckcertificate": True,
+        "http_headers": {
+            "User-Agent":
+            "Mozilla/5.0"
+        },
 
+        "extractor_args": {
 
-            "http_headers": {
+            "youtube": {
 
-                "User-Agent":
-                "Mozilla/5.0"
+                "player_client":
+                ["android"]
 
             }
 
         }
 
+    }
 
 
-        try:
+
+    with yt_dlp.YoutubeDL(options) as ydl:
+
+        ydl.download([url])
 
 
-            with yt_dlp.YoutubeDL(options) as ydl:
 
-                ydl.download([url])
-
-
-            st.success(
-                "Video downloaded ✅"
-            )
-
-
-        except Exception as e:
-
-
-            st.error(
-                "Download failed"
-            )
-
-            st.write(e)
-
-            st.stop()
+    print("Downloaded")
 
 
 
 
 
-
-        # 2. Whisper Speech To Text
-
-
-        st.info(
-            "Converting speech to text..."
-        )
+    # 2. Whisper speech recognition
 
 
-        model = whisper.load_model(
-            "small"
-        )
+    print("Speech to text...")
 
 
-        result = model.transcribe(
+    model = whisper.load_model(
+        "large-v3"
+    )
 
-            "video.mp4",
 
-            language="en",
-
-            fp16=False
-
-        )
+    result = model.transcribe(
+        "video.mp4",
+        language="en",
+        fp16=False
+    )
 
 
 
-        english_sentences = []
+    segments = result["segments"]
 
 
-
-        for item in result["segments"]:
-
-
-            english_sentences.append(
-
-                item["text"]
-
-            )
+    english = []
 
 
+    for item in segments:
 
-        english_text = " ".join(
-
-            english_sentences
-
-        )
-
-
-
-        st.subheader(
-            "English"
-        )
-
-
-        st.write(
-            english_text
+        english.append(
+            item["text"]
         )
 
 
 
 
 
+    # 3. Translate English to Tamil
 
 
-        # 3. Translate English → Tamil
+    print("Translating...")
 
 
-        st.info(
-            "Translating to Tamil..."
+    translator = GoogleTranslator(
+
+        source="en",
+        target="ta"
+
+    )
+
+
+
+    tamil = []
+
+
+
+    for sentence in english:
+
+
+        translated = translator.translate(
+            sentence
+        )
+
+
+        tamil.append(
+            translated
         )
 
 
 
-        translator = GoogleTranslator(
+    tamil_text = " ".join(tamil)
 
-            source="en",
 
-            target="ta"
 
-        )
 
 
+    # 4. Tamil voice
 
-        tamil_sentences = []
 
+    print("Creating voice...")
 
 
-        for sentence in english_sentences:
+    voice = gTTS(
 
+        text=tamil_text,
 
-            tamil = translator.translate(
+        lang="ta",
 
-                sentence
+        slow=False
 
-            )
+    )
 
 
-            tamil_sentences.append(
+    voice.save(
+        "tamil_audio.mp3"
+    )
 
-                tamil
 
-            )
 
 
 
-        tamil_text = " ".join(
 
-            tamil_sentences
+    # 5. Merge audio and video
 
-        )
 
+    print("Creating video...")
 
 
-        st.subheader(
-            "Tamil"
-        )
+    video = VideoFileClip(
+        "video.mp4"
+    )
 
 
-        st.write(
-            tamil_text
-        )
+    audio = AudioFileClip(
+        "tamil_audio.mp3"
+    )
 
 
 
+    final = video.with_audio(
+        audio
+    )
 
 
+    final.write_videofile(
 
+        "Tamil_Dubbed.mp4",
 
-        # 4. Tamil Voice
+        codec="libx264",
 
+        audio_codec="aac"
 
-        st.info(
-            "Creating Tamil voice..."
-        )
+    )
 
 
 
-        tts = gTTS(
+    print("Finished")
 
-            text=tamil_text,
 
-            lang="ta"
 
-        )
 
+    return send_file(
 
-        tts.save(
+        "Tamil_Dubbed.mp4",
 
-            "tamil_audio.mp3"
+        as_attachment=True
 
-        )
+    )
 
 
 
@@ -250,85 +225,13 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        # 5. Create Dubbed Video
+if __name__ == "__main__":
 
 
-        st.info(
-            "Creating Tamil dubbed video..."
-        )
+    app.run(
 
+        host="0.0.0.0",
 
-        video = VideoFileClip(
+        port=5000
 
-            "video.mp4"
-
-        )
-
-
-        audio = AudioFileClip(
-
-            "tamil_audio.mp3"
-
-        )
-
-
-        final_video = video.with_audio(
-
-            audio
-
-        )
-
-
-        final_video.write_videofile(
-
-            "Tamil_Dubbed.mp4",
-
-            codec="libx264",
-
-            audio_codec="aac"
-
-        )
-
-
-
-
-
-        st.success(
-            "DONE ✅ Tamil Dubbed Video Ready"
-        )
-
-
-
-
-        # Download
-
-
-        with open(
-
-            "Tamil_Dubbed.mp4",
-
-            "rb"
-
-        ) as file:
-
-
-            st.download_button(
-
-                label="⬇️ Download Tamil Dubbed Video",
-
-                data=file,
-
-                file_name="Tamil_Dubbed.mp4",
-
-                mime="video/mp4"
-
-            )
-
-
-
-    else:
-
-
-        st.warning(
-            "Paste YouTube URL first"
-        )
+    )
