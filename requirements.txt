@@ -1,8 +1,8 @@
 streamlit
+yt-dlp
 openai-whisper
 torch
 gtts
 moviepy
 deep-translator
 imageio-ffmpeg
-ffmpeg-python
