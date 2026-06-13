@@ -1,5 +1,6 @@
 import streamlit as st
 import whisper
+import yt_dlp
 import os
 
 from gtts import gTTS
@@ -7,54 +8,105 @@ from moviepy import VideoFileClip, AudioFileClip
 from deep_translator import GoogleTranslator
 
 
-st.title("🎬 AI English → Tamil Video Dubber")
+st.title("🎬 AI English → Tamil YouTube Video Dubber")
 
 
-uploaded_file = st.file_uploader(
-    "Upload English Video",
-    type=["mp4", "mov", "avi"]
+url = st.text_input(
+    "Paste YouTube URL"
 )
-
 
 
 if st.button("Start Tamil Dubbing"):
 
 
-    if uploaded_file:
+    if url:
 
 
-        # Save uploaded video
-
-        with open(
-            "video.mp4",
-            "wb"
-        ) as f:
-
-            f.write(
-                uploaded_file.read()
-            )
-
-
-
-        st.success("Video uploaded ✅")
-
-
-
-
-        # 1. Speech To Text
+        # 1. Download YouTube Video
 
 
         st.info(
-            "Converting English speech to text..."
+            "Downloading video..."
         )
 
 
-        whisper_model = whisper.load_model(
+        if os.path.exists("video.mp4"):
+            os.remove("video.mp4")
+
+
+
+        options = {
+
+
+            "format": "best[ext=mp4]/best",
+
+
+            "outtmpl": "video.mp4",
+
+
+            "noplaylist": True,
+
+
+            "quiet": False,
+
+
+            "nocheckcertificate": True,
+
+
+            "http_headers": {
+
+                "User-Agent":
+                "Mozilla/5.0"
+
+            }
+
+        }
+
+
+
+        try:
+
+
+            with yt_dlp.YoutubeDL(options) as ydl:
+
+                ydl.download([url])
+
+
+            st.success(
+                "Video downloaded ✅"
+            )
+
+
+        except Exception as e:
+
+
+            st.error(
+                "Download failed"
+            )
+
+            st.write(e)
+
+            st.stop()
+
+
+
+
+
+
+        # 2. Whisper Speech To Text
+
+
+        st.info(
+            "Converting speech to text..."
+        )
+
+
+        model = whisper.load_model(
             "small"
         )
 
 
-        result = whisper_model.transcribe(
+        result = model.transcribe(
 
             "video.mp4",
 
@@ -66,15 +118,11 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        segments = result["segments"]
-
-
-
         english_sentences = []
 
 
 
-        for item in segments:
+        for item in result["segments"]:
 
 
             english_sentences.append(
@@ -94,7 +142,7 @@ if st.button("Start Tamil Dubbing"):
 
 
         st.subheader(
-            "English Text"
+            "English"
         )
 
 
@@ -106,12 +154,15 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        # 2. English To Tamil
+
+
+        # 3. Translate English → Tamil
 
 
         st.info(
             "Translating to Tamil..."
         )
+
 
 
         translator = GoogleTranslator(
@@ -155,7 +206,7 @@ if st.button("Start Tamil Dubbing"):
 
 
         st.subheader(
-            "Tamil Translation"
+            "Tamil"
         )
 
 
@@ -168,7 +219,8 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        # 3. Tamil Voice
+
+        # 4. Tamil Voice
 
 
         st.info(
@@ -181,12 +233,9 @@ if st.button("Start Tamil Dubbing"):
 
             text=tamil_text,
 
-            lang="ta",
-
-            slow=False
+            lang="ta"
 
         )
-
 
 
         tts.save(
@@ -201,13 +250,12 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        # 4. Create Dubbed Video
+        # 5. Create Dubbed Video
 
 
         st.info(
             "Creating Tamil dubbed video..."
         )
-
 
 
         video = VideoFileClip(
@@ -217,7 +265,6 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
-
         audio = AudioFileClip(
 
             "tamil_audio.mp3"
@@ -225,13 +272,11 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
-
         final_video = video.with_audio(
 
             audio
 
         )
-
 
 
         final_video.write_videofile(
@@ -255,7 +300,6 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-
         # Download
 
 
@@ -266,7 +310,6 @@ if st.button("Start Tamil Dubbing"):
             "rb"
 
         ) as file:
-
 
 
             st.download_button(
@@ -287,5 +330,5 @@ if st.button("Start Tamil Dubbing"):
 
 
         st.warning(
-            "Upload a video first"
+            "Paste YouTube URL first"
         )
