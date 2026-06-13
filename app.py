@@ -1,5 +1,4 @@
 import streamlit as st
-import yt_dlp
 import whisper
 import os
 
@@ -8,102 +7,46 @@ from moviepy import VideoFileClip, AudioFileClip
 from deep_translator import GoogleTranslator
 
 
-st.title("🎬 AI English → Tamil YouTube Video Dubber")
+st.title("🎬 AI English → Tamil Video Dubber")
 
 
-url = st.text_input("Paste YouTube URL")
+uploaded_file = st.file_uploader(
+    "Upload English Video",
+    type=["mp4", "mov", "avi"]
+)
+
 
 
 if st.button("Start Tamil Dubbing"):
 
 
-    if url:
+    if uploaded_file:
 
 
-        # 1. Download YouTube Video
+        # Save uploaded video
 
-        st.info("Downloading video...")
+        with open(
+            "video.mp4",
+            "wb"
+        ) as f:
 
-
-        if os.path.exists("video.mp4"):
-            os.remove("video.mp4")
-
-
-        options = {
-
-
-            "format": "best[ext=mp4]/best",
-
-
-            "outtmpl": "video.mp4",
-
-
-            "noplaylist": True,
-
-
-            "quiet": False,
-
-
-            "nocheckcertificate": True,
-
-
-            "http_headers": {
-
-
-                "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-
-            },
-
-
-            "extractor_args": {
-
-
-                "youtube": {
-
-
-                    "player_client": [
-
-                        "web"
-
-                    ]
-
-                }
-
-            }
-
-        }
+            f.write(
+                uploaded_file.read()
+            )
 
 
 
-        try:
-
-
-            with yt_dlp.YoutubeDL(options) as ydl:
-
-                ydl.download([url])
-
-
-            st.success("Download completed ✅")
-
-
-        except Exception as e:
-
-
-            st.error("YouTube download failed")
-
-            st.write(e)
-
-            st.stop()
+        st.success("Video uploaded ✅")
 
 
 
 
+        # 1. Speech To Text
 
-        # 2. Speech To Text
 
-
-        st.info("Converting English speech to text...")
+        st.info(
+            "Converting English speech to text..."
+        )
 
 
         whisper_model = whisper.load_model(
@@ -150,24 +93,25 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        st.subheader("English Text")
+        st.subheader(
+            "English Text"
+        )
 
 
         st.write(
-
             english_text
-
         )
 
 
 
 
 
-        # 3. English → Tamil
+        # 2. English To Tamil
 
 
-        st.info("Translating to Tamil...")
-
+        st.info(
+            "Translating to Tamil..."
+        )
 
 
         translator = GoogleTranslator(
@@ -210,13 +154,13 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        st.subheader("Tamil Translation")
+        st.subheader(
+            "Tamil Translation"
+        )
 
 
         st.write(
-
             tamil_text
-
         )
 
 
@@ -224,11 +168,12 @@ if st.button("Start Tamil Dubbing"):
 
 
 
+        # 3. Tamil Voice
 
-        # 4. Tamil Voice
 
-
-        st.info("Creating Tamil voice...")
+        st.info(
+            "Creating Tamil voice..."
+        )
 
 
 
@@ -256,10 +201,12 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        # 5. Create Dubbed Video
+        # 4. Create Dubbed Video
 
 
-        st.info("Creating Tamil dubbed video...")
+        st.info(
+            "Creating Tamil dubbed video..."
+        )
 
 
 
@@ -302,16 +249,14 @@ if st.button("Start Tamil Dubbing"):
 
 
         st.success(
-
             "DONE ✅ Tamil Dubbed Video Ready"
-
         )
 
 
 
 
 
-        # Download button
+        # Download
 
 
         with open(
@@ -342,7 +287,5 @@ if st.button("Start Tamil Dubbing"):
 
 
         st.warning(
-
-            "Paste YouTube URL first"
-
+            "Upload a video first"
         )
