@@ -1,8 +1,9 @@
-flask
+streamlit
 yt-dlp
 openai-whisper
 torch
+torchaudio
 gtts
 moviepy
 deep-translator
-gunicorn
+imageio-ffmpeg
