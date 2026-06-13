@@ -1,7 +1,8 @@
 streamlit
-yt-dlp>=2025.01.01
+yt-dlp
 openai-whisper
 torch
 gtts
 moviepy
 deep-translator
+imageio-ffmpeg
