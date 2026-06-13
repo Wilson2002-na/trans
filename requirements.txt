@@ -1,5 +1,5 @@
 streamlit
-yt-dlp>=2025.1.0
+yt-dlp==2026.3.17
 openai-whisper
 torch
 gtts
