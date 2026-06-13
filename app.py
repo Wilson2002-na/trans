@@ -31,19 +31,42 @@ if st.button("Start Tamil Dubbing"):
 
         options = {
 
-            "format": "bestvideo+bestaudio/best",
 
-            "outtmpl": "video.%(ext)s",
+            "format": "best[ext=mp4]/best",
 
-            "merge_output_format": "mp4",
+
+            "outtmpl": "video.mp4",
+
 
             "noplaylist": True,
 
+
+            "quiet": False,
+
+
+            "nocheckcertificate": True,
+
+
+            "http_headers": {
+
+
+                "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+
+            },
+
+
             "extractor_args": {
+
 
                 "youtube": {
 
-                    "player_client": ["android"]
+
+                    "player_client": [
+
+                        "web"
+
+                    ]
 
                 }
 
@@ -52,7 +75,9 @@ if st.button("Start Tamil Dubbing"):
         }
 
 
+
         try:
+
 
             with yt_dlp.YoutubeDL(options) as ydl:
 
@@ -64,11 +89,14 @@ if st.button("Start Tamil Dubbing"):
 
         except Exception as e:
 
+
             st.error("YouTube download failed")
 
             st.write(e)
 
             st.stop()
+
+
 
 
 
@@ -94,13 +122,17 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
+
         segments = result["segments"]
+
 
 
         english_sentences = []
 
 
+
         for item in segments:
+
 
             english_sentences.append(
 
@@ -117,7 +149,9 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
+
         st.subheader("English Text")
+
 
         st.write(
 
@@ -128,10 +162,12 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        # 3. Translate English To Tamil
+
+        # 3. English → Tamil
 
 
         st.info("Translating to Tamil...")
+
 
 
         translator = GoogleTranslator(
@@ -143,7 +179,9 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
+
         tamil_sentences = []
+
 
 
         for sentence in english_sentences:
@@ -171,7 +209,9 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
+
         st.subheader("Tamil Translation")
+
 
         st.write(
 
@@ -183,10 +223,13 @@ if st.button("Start Tamil Dubbing"):
 
 
 
+
+
         # 4. Tamil Voice
 
 
         st.info("Creating Tamil voice...")
+
 
 
         tts = gTTS(
@@ -200,11 +243,14 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
+
         tts.save(
 
             "tamil_audio.mp3"
 
         )
+
+
 
 
 
@@ -216,11 +262,13 @@ if st.button("Start Tamil Dubbing"):
         st.info("Creating Tamil dubbed video...")
 
 
+
         video = VideoFileClip(
 
             "video.mp4"
 
         )
+
 
 
         audio = AudioFileClip(
@@ -230,11 +278,13 @@ if st.button("Start Tamil Dubbing"):
         )
 
 
+
         final_video = video.with_audio(
 
             audio
 
         )
+
 
 
         final_video.write_videofile(
@@ -249,7 +299,15 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-        st.success("DONE ✅ Tamil Dubbed Video Ready")
+
+
+        st.success(
+
+            "DONE ✅ Tamil Dubbed Video Ready"
+
+        )
+
+
 
 
 
@@ -265,6 +323,7 @@ if st.button("Start Tamil Dubbing"):
         ) as file:
 
 
+
             st.download_button(
 
                 label="⬇️ Download Tamil Dubbed Video",
@@ -278,8 +337,12 @@ if st.button("Start Tamil Dubbing"):
             )
 
 
+
     else:
 
+
         st.warning(
+
             "Paste YouTube URL first"
+
         )
