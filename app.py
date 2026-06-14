@@ -1,45 +1,48 @@
 import streamlit as st
 import whisper
-import yt_dlp
+import os
+import tempfile
 from gtts import gTTS
 from moviepy import VideoFileClip, AudioFileClip
 from deep_translator import GoogleTranslator
-import os
-import tempfile
 
-st.title("🎬 AI YouTube English → Tamil Video Dubber")
+st.title("🎬 AI English → Tamil Video Dubber")
+st.write("Upload a video file to get a Tamil dubbed version")
 
-url = st.text_input("Paste YouTube Video URL")
+uploaded = st.file_uploader(
+    "Upload Video File",
+    type=["mp4", "mkv", "avi", "mov", "webm"]
+)
 
 if st.button("Start Tamil Dubbing"):
-    if url:
-        # Use a temp directory for all files
+    if uploaded:
         tmpdir = tempfile.mkdtemp()
-        video_path = os.path.join(tmpdir, "video.mp4")
+        ext = os.path.splitext(uploaded.name)[1]  # keep original extension
+        video_path = os.path.join(tmpdir, f"video{ext}")
         audio_path = os.path.join(tmpdir, "tamil_audio.mp3")
         output_path = os.path.join(tmpdir, "Tamil_Dubbed.mp4")
 
         try:
-            # Download YouTube video
-            st.info("Downloading YouTube video...")
-            ydl_opts = {
-                "format": "mp4",
-                "outtmpl": video_path,
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            st.success("Video downloaded ✅")
+            # Save uploaded file to disk
+            st.info("Saving uploaded video...")
+            with open(video_path, "wb") as f:
+                f.write(uploaded.read())
+            st.success("Video saved ✅")
 
             # Whisper transcription
-            st.info("Converting speech to text...")
+            st.info("Converting speech to text... (this may take a few minutes)")
             model = whisper.load_model("small")
             result = model.transcribe(
-                video_path,   # ✅ real file path, not object
+                video_path,
                 language="en",
                 fp16=False
             )
             english = [item["text"] for item in result["segments"]]
             st.success("Transcription done ✅")
+
+            # Show original English text
+            with st.expander("📝 English Transcript"):
+                st.write(" ".join(english))
 
             # Translate to Tamil
             st.info("Translating English to Tamil...")
@@ -47,6 +50,10 @@ if st.button("Start Tamil Dubbing"):
             tamil = [translator.translate(sentence) for sentence in english]
             tamil_text = " ".join(tamil)
             st.success("Translation done ✅")
+
+            # Show Tamil text
+            with st.expander("🔤 Tamil Translation"):
+                st.write(tamil_text)
 
             # Generate Tamil audio
             st.info("Generating Tamil voice...")
@@ -68,7 +75,7 @@ if st.button("Start Tamil Dubbing"):
                 output_path,
                 codec="libx264",
                 audio_codec="aac",
-                logger=None   # suppresses noisy logs in Streamlit
+                logger=None
             )
             video.close()
             audio.close()
@@ -77,7 +84,7 @@ if st.button("Start Tamil Dubbing"):
             # Download button
             with open(output_path, "rb") as file:
                 st.download_button(
-                    "⬇️ Download Tamil Video",
+                    "⬇️ Download Tamil Dubbed Video",
                     file,
                     file_name="Tamil_Dubbed.mp4",
                     mime="video/mp4"
@@ -93,4 +100,4 @@ if st.button("Start Tamil Dubbing"):
                     os.remove(f)
 
     else:
-        st.warning("Paste YouTube URL first")
+        st.warning("Please upload a video file first!")
