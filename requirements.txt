@@ -4,5 +4,4 @@ torch
 gtts
 moviepy
 deep-translator
-yt-dlp
 ffmpeg-python
