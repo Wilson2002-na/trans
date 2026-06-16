@@ -2,7 +2,7 @@ yt-dlp
 openai-whisper
 deep-translator
 moviepy
-elevenlabs
+gtts
 torch
 torchvision
 torchaudio
