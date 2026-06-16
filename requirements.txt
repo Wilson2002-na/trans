@@ -1,7 +1,8 @@
-streamlit
+yt-dlp
 openai-whisper
-torch
-gtts
-moviepy
 deep-translator
-ffmpeg-python
+moviepy
+elevenlabs
+torch
+torchvision
+torchaudio
