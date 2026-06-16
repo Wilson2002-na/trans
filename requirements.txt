@@ -1,8 +1,8 @@
-yt-dlp
+streamlit
 openai-whisper
-deep-translator
-moviepy
 gtts
+moviepy
+deep-translator
 torch
 torchvision
 torchaudio
