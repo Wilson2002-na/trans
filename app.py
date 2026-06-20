@@ -5,16 +5,19 @@ import tempfile
 import atexit
 import shutil
 
-from moviepy import VideoFileClip, AudioFileClip
+from moviepy import (
+    VideoFileClip,
+    AudioFileClip,
+    CompositeAudioClip
+)
+
 from deep_translator import GoogleTranslator
 from elevenlabs.client import ElevenLabs
-
-from pydub import AudioSegment
 
 
 
 st.title("🎬 AI English → Tamil Video Dubber")
-st.write("Automatic AI dubbing with speaker timing sync")
+st.write("Automatic speaker timing + AI Tamil dubbing")
 
 
 
@@ -27,18 +30,17 @@ client = ElevenLabs(
 )
 
 
-VOICE_ID = "CwhRBWXzGAHq8TQ4Fs1"
+VOICE_ID = "CwhRBWXzGAHq8TQ4Fs17"
 
 
 
 
 
-# session
+# Session state
 
 if "tmpdir" not in st.session_state:
 
     st.session_state.tmpdir=None
-
 
 
 if "output_path" not in st.session_state:
@@ -46,18 +48,9 @@ if "output_path" not in st.session_state:
     st.session_state.output_path=None
 
 
-
 if "download_ready" not in st.session_state:
 
     st.session_state.download_ready=False
-
-
-
-
-if "download_clicked" not in st.session_state:
-
-    st.session_state.download_clicked=False
-
 
 
 
@@ -77,8 +70,7 @@ def cleanup_tmpdir(path):
 
 
 
-
-def exit_cleanup():
+def cleanup():
 
     cleanup_tmpdir(
 
@@ -87,8 +79,8 @@ def exit_cleanup():
     )
 
 
+atexit.register(cleanup)
 
-atexit.register(exit_cleanup)
 
 
 
@@ -100,13 +92,11 @@ uploaded = st.file_uploader(
     "Upload Video",
 
     type=[
-
         "mp4",
         "mkv",
         "avi",
         "mov",
         "webm"
-
     ]
 
 )
@@ -134,7 +124,6 @@ if st.button("Start Tamil Dubbing"):
 
 
         tmpdir=tempfile.mkdtemp()
-
 
 
         st.session_state.tmpdir=tmpdir
@@ -175,11 +164,9 @@ if st.button("Start Tamil Dubbing"):
 
             tmpdir,
 
-            "final_audio.mp3"
+            "tamil_audio.mp3"
 
         )
-
-
 
 
 
@@ -194,17 +181,14 @@ if st.button("Start Tamil Dubbing"):
             with open(video_path,"wb") as f:
 
                 f.write(
-
                     uploaded.read()
-
                 )
 
 
 
             st.success(
-                "Video loaded"
+                "Video uploaded"
             )
-
 
 
 
@@ -245,9 +229,7 @@ if st.button("Start Tamil Dubbing"):
 
 
             st.success(
-
-                "Speech timing detected"
-
+                "Timing detected"
             )
 
 
@@ -256,36 +238,21 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-            # create empty audio timeline
+
+            # Create audio clips list
 
 
-            video=VideoFileClip(
-
-                video_path
-
-            )
-
-
-
-            final_audio=AudioSegment.silent(
-
-                duration=int(
-
-                    video.duration*1000
-
-                )
-
-            )
+            audio_clips=[]
 
 
 
 
 
 
-            # process every sentence
+            # Process each sentence
 
 
-            for index,seg in enumerate(segments):
+            for i,seg in enumerate(segments):
 
 
 
@@ -294,25 +261,21 @@ if st.button("Start Tamil Dubbing"):
                 end=seg["end"]
 
 
+                text=seg["text"]
+
+
                 duration=end-start
-
-
-
-                english=seg["text"]
 
 
 
                 st.write(
 
-                    f"Processing sentence {index+1}/{len(segments)}"
+                    f"Processing {i+1}/{len(segments)}"
 
                 )
 
 
 
-
-
-                # translate
 
 
                 tamil=GoogleTranslator(
@@ -323,7 +286,7 @@ if st.button("Start Tamil Dubbing"):
 
                 ).translate(
 
-                    english
+                    text
 
                 )
 
@@ -333,7 +296,8 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-                # elevenlabs
+
+                # ElevenLabs
 
 
                 audio=client.text_to_speech.convert(
@@ -357,13 +321,15 @@ if st.button("Start Tamil Dubbing"):
 
 
 
+
                 segment_file=os.path.join(
 
                     tmpdir,
 
-                    f"segment_{index}.mp3"
+                    f"audio_{i}.mp3"
 
                 )
+
 
 
 
@@ -381,7 +347,7 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-                tamil_audio=AudioSegment.from_file(
+                clip=AudioFileClip(
 
                     segment_file
 
@@ -391,102 +357,39 @@ if st.button("Start Tamil Dubbing"):
 
 
 
+                # automatic timing placement
 
 
-                # AUTO LIPSYNC SPEED CONTROL
+                clip=clip.with_start(
 
-
-
-                target=int(
-
-                    duration*1000
+                    start
 
                 )
 
 
 
-                current=len(
-
-                    tamil_audio
-
-                )
 
 
-
-                if current > target:
-
+                # fit duration
 
 
-                    speed=current/target
+                if clip.duration > duration:
 
 
+                    clip=clip.subclipped(
 
-                    new_rate=int(
+                        0,
 
-                        tamil_audio.frame_rate*speed
-
-                    )
-
-
-
-                    tamil_audio=tamil_audio._spawn(
-
-                        tamil_audio.raw_data,
-
-                        overrides={
-
-                            "frame_rate":new_rate
-
-                        }
-
-                    ).set_frame_rate(
-
-                        tamil_audio.frame_rate
+                        duration
 
                     )
 
 
 
 
+                audio_clips.append(
 
-
-
-
-                # cut extra audio
-
-
-                tamil_audio=tamil_audio[:target]
-
-
-
-
-
-                # add silence if short
-
-
-                if len(tamil_audio)<target:
-
-
-
-                    tamil_audio += AudioSegment.silent(
-
-                        duration=target-len(tamil_audio)
-
-                    )
-
-
-
-
-
-
-                # place at original time
-
-
-                final_audio=final_audio.overlay(
-
-                    tamil_audio,
-
-                    position=int(start*1000)
+                    clip
 
                 )
 
@@ -497,14 +400,24 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-            # save final audio
+            # combine all speech clips
 
 
-            final_audio.export(
+            final_audio=CompositeAudioClip(
+
+                audio_clips
+
+            )
+
+
+
+            final_audio.write_audiofile(
 
                 final_audio_path,
 
-                format="mp3"
+                codec="mp3",
+
+                logger=None
 
             )
 
@@ -514,8 +427,14 @@ if st.button("Start Tamil Dubbing"):
 
 
 
+            # merge with video
 
-            # merge
+
+            video=VideoFileClip(
+
+                video_path
+
+            )
 
 
             audio=AudioFileClip(
@@ -526,7 +445,7 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-            final_video=video.with_audio(
+            final=video.with_audio(
 
                 audio
 
@@ -534,7 +453,7 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-            final_video.write_videofile(
+            final.write_videofile(
 
                 output_path,
 
@@ -548,12 +467,9 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-
             video.close()
 
             audio.close()
-
-
 
 
 
@@ -561,7 +477,6 @@ if st.button("Start Tamil Dubbing"):
 
 
             st.session_state.download_ready=True
-
 
 
 
@@ -575,12 +490,13 @@ if st.button("Start Tamil Dubbing"):
 
 
 
+
         except Exception as e:
 
 
             st.error(
 
-                str(e)
+                f"Error: {e}"
 
             )
 
@@ -596,14 +512,11 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-
     else:
 
 
         st.warning(
-
             "Upload video first"
-
         )
 
 
@@ -612,10 +525,7 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-
-
-# download
-
+# Download
 
 
 if (
@@ -627,6 +537,7 @@ if (
 ):
 
 
+
     with open(
 
         st.session_state.output_path,
@@ -636,25 +547,20 @@ if (
     ) as f:
 
 
-        data=f.read()
+        video=f.read()
 
 
 
 
 
-    if st.download_button(
+    st.download_button(
 
-        "⬇️ Download Tamil Video",
+        "⬇️ Download Tamil Dubbed Video",
 
-        data,
+        video,
 
         file_name="Tamil_Dubbed.mp4",
 
         mime="video/mp4"
 
-    ):
-
-
-        st.session_state.download_clicked=True
-
-        st.rerun()
+    )
