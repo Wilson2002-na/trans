@@ -6,3 +6,4 @@ deep-translator
 torch
 torchvision
 torchaudio
+elevenlabs
