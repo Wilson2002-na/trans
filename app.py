@@ -5,52 +5,49 @@ import tempfile
 import atexit
 import shutil
 
-from moviepy import (
-    VideoFileClip,
-    AudioFileClip,
-    CompositeAudioClip
-)
-
+from moviepy import VideoFileClip, AudioFileClip
 from deep_translator import GoogleTranslator
 from elevenlabs.client import ElevenLabs
 
 
 
-st.title("🎬 AI English → Tamil Video Dubber")
-st.write("AI dubbing with speaker timing sync")
+st.title("🎬 AI English → Tamil Lip Sync Dubber")
 
-
-
-# ElevenLabs
-
-client = ElevenLabs(
-    api_key="sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7"
+st.write(
+    "English video → Tamil voice → AI mouth sync"
 )
 
 
-VOICE_ID = "CwhRBWXzGAHq8TQ4Fs17"
+
+client = ElevenLabs(
+
+    api_key="sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7"
+
+)
+
+
+VOICE_ID="CwhRBWXzGAHq8TQ4Fs17"
 
 
 
 
-# Session state
+
+# session
 
 
-for key,value in {
+if "tmpdir" not in st.session_state:
 
-    "tmpdir":None,
+    st.session_state.tmpdir=None
 
-    "output_path":None,
 
-    "download_ready":False,
+if "output_path" not in st.session_state:
 
-    "download_clicked":False
+    st.session_state.output_path=None
 
-}.items():
 
-    if key not in st.session_state:
+if "download_ready" not in st.session_state:
 
-        st.session_state[key]=value
+    st.session_state.download_ready=False
 
 
 
@@ -61,37 +58,48 @@ def cleanup_tmpdir(path):
     if path and os.path.isdir(path):
 
         shutil.rmtree(
+
             path,
+
             ignore_errors=True
+
         )
 
 
 
 
-def cleanup():
+atexit.register(
+
+    lambda:
 
     cleanup_tmpdir(
+
         st.session_state.get("tmpdir")
+
     )
 
-
-atexit.register(cleanup)
-
+)
 
 
 
 
 
-uploaded = st.file_uploader(
 
-    "Upload Video",
+
+uploaded=st.file_uploader(
+
+    "Upload video",
 
     type=[
+
         "mp4",
+
         "mkv",
-        "avi",
+
         "mov",
-        "webm"
+
+        "avi"
+
     ]
 
 )
@@ -102,7 +110,8 @@ uploaded = st.file_uploader(
 
 
 
-if st.button("Start Tamil Dubbing"):
+
+if st.button("Start AI Lip Sync Dub"):
 
 
 
@@ -121,17 +130,10 @@ if st.button("Start Tamil Dubbing"):
         tmpdir=tempfile.mkdtemp()
 
 
+
         st.session_state.tmpdir=tmpdir
 
 
-
-
-
-        ext=os.path.splitext(
-
-            uploaded.name
-
-        )[1]
 
 
 
@@ -139,30 +141,27 @@ if st.button("Start Tamil Dubbing"):
 
             tmpdir,
 
-            "video"+ext
+            "input.mp4"
 
         )
 
 
-
-        final_audio_path=os.path.join(
+        audio_path=os.path.join(
 
             tmpdir,
 
-            "tamil_sync.mp3"
+            "tamil_voice.mp3"
 
         )
-
 
 
         output_path=os.path.join(
 
             tmpdir,
 
-            "Tamil_Dubbed.mp4"
+            "Tamil_LipSync.mp4"
 
         )
-
 
 
 
@@ -172,14 +171,17 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-            # Save video
+            # save video
 
 
             with open(video_path,"wb") as f:
 
                 f.write(
+
                     uploaded.read()
+
                 )
+
 
 
 
@@ -191,19 +193,21 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-
-
-            # Whisper timestamps
+            # Whisper
 
 
             st.info(
-                "Detecting speaker timing..."
+                "Finding speech..."
             )
+
 
 
             model=whisper.load_model(
+
                 "small"
+
             )
+
 
 
             result=model.transcribe(
@@ -217,12 +221,90 @@ if st.button("Start Tamil Dubbing"):
             )
 
 
-            segments=result["segments"]
+
+            english=result["text"]
+
+
+
+            st.write(
+                english
+            )
+
+
+
+
+
+            # Translate
+
+
+            st.info(
+                "Translating Tamil..."
+            )
+
+
+            tamil=GoogleTranslator(
+
+                source="en",
+
+                target="ta"
+
+            ).translate(
+
+                english
+
+            )
+
+
+
+
+
+            st.write(tamil)
+
+
+
+
+
+
+            # ElevenLabs
+
+
+            st.info(
+                "Generating Tamil voice..."
+            )
+
+
+
+            audio=client.text_to_speech.convert(
+
+
+                voice_id=VOICE_ID,
+
+
+                model_id="eleven_multilingual_v2",
+
+
+                text=tamil
+
+
+            )
+
+
+
+
+
+            with open(audio_path,"wb") as f:
+
+
+                for chunk in audio:
+
+                    f.write(chunk)
+
+
 
 
 
             st.success(
-                "Speaker timing found"
+                "Tamil audio ready"
             )
 
 
@@ -231,259 +313,62 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-            audio_clips=[]
+            # Wav2Lip
 
 
-
-
-
-
-
-            # Generate every speech part
-
-
-            for i,segment in enumerate(segments):
-
-
-
-                start=segment["start"]
-
-                end=segment["end"]
-
-                duration=end-start
-
-
-
-                english=segment["text"]
-
-
-
-
-                st.write(
-
-                    f"Processing {i+1}/{len(segments)}"
-
-                )
-
-
-
-
-
-
-                # translate
-
-
-                tamil=GoogleTranslator(
-
-                    source="en",
-
-                    target="ta"
-
-                ).translate(
-
-                    english
-
-                )
-
-
-
-
-
-
-
-
-                # ElevenLabs
-
-
-                audio=client.text_to_speech.convert(
-
-
-                    voice_id=VOICE_ID,
-
-
-                    model_id="eleven_multilingual_v2",
-
-
-                    text=tamil
-
-
-                )
-
-
-
-
-
-
-
-                segment_audio=os.path.join(
-
-                    tmpdir,
-
-                    f"part_{i}.mp3"
-
-                )
-
-
-
-
-
-                with open(segment_audio,"wb") as f:
-
-
-                    for chunk in audio:
-
-                        f.write(chunk)
-
-
-
-
-
-
-
-
-                clip=AudioFileClip(
-
-                    segment_audio
-
-                )
-
-
-
-
-
-                # Match speaker duration
-
-
-                if clip.duration > duration:
-
-
-                    clip=clip.subclipped(
-
-                        0,
-
-                        duration
-
-                    )
-
-
-
-
-
-
-
-                # put audio at original speaking time
-
-
-                clip=clip.with_start(
-
-                    start
-
-                )
-
-
-
-                audio_clips.append(
-
-                    clip
-
-                )
-
-
-
-
-
-
-
-
-            # Combine all speech pieces
-
-
-            final_audio=CompositeAudioClip(
-
-                audio_clips
-
+            st.info(
+                "Applying AI lip sync..."
             )
 
 
 
-            final_audio.write_audiofile(
+            command=f"""
 
-                final_audio_path,
+            python Wav2Lip/inference.py
 
-                codec="mp3",
+            --checkpoint_path Wav2Lip/checkpoints/Wav2Lip_gan.pth
 
-                logger=None
+            --face {video_path}
 
+            --audio {audio_path}
+
+            --outfile {output_path}
+
+            --pads 0 20 0 0
+
+            --resize_factor 1
+
+            """
+
+
+
+            result=os.system(command)
+
+
+
+            if result !=0:
+
+
+                raise Exception(
+
+                    "Wav2Lip failed"
+
+                )
+
+
+
+
+
+
+            st.success(
+                "Lip sync completed 🎉"
             )
-
-
-
-
-
-
-
-
-            # Merge video
-
-
-            video=VideoFileClip(
-
-                video_path
-
-            )
-
-
-
-            audio=AudioFileClip(
-
-                final_audio_path
-
-            )
-
-
-
-            final=video.with_audio(
-
-                audio
-
-            )
-
-
-
-            final.write_videofile(
-
-                output_path,
-
-                codec="libx264",
-
-                audio_codec="aac",
-
-                logger=None
-
-            )
-
-
-
-            video.close()
-
-            audio.close()
-
-
-
 
 
 
             st.session_state.output_path=output_path
 
             st.session_state.download_ready=True
-
-
-
-            st.success(
-
-                "🎉 Tamil Lip-sync timing Dub Ready"
-
-            )
 
 
 
@@ -501,13 +386,8 @@ if st.button("Start Tamil Dubbing"):
             )
 
 
-            cleanup_tmpdir(
 
-                tmpdir
-
-            )
-
-
+            cleanup_tmpdir(tmpdir)
 
 
 
@@ -525,17 +405,17 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-
-# Download
+# download
 
 
 if (
 
-    st.session_state.download_ready
+st.session_state.download_ready
 
-    and st.session_state.output_path
+and st.session_state.output_path
 
 ):
+
 
 
     with open(
@@ -551,19 +431,16 @@ if (
 
 
 
-    if st.download_button(
 
-        "⬇️ Download Tamil Dubbed Video",
+
+    st.download_button(
+
+        "⬇️ Download Tamil Lip Sync Video",
 
         data,
 
-        file_name="Tamil_Dubbed.mp4",
+        file_name="Tamil_LipSync.mp4",
 
         mime="video/mp4"
 
-    ):
-
-
-        st.session_state.download_clicked=True
-
-        st.rerun()
+    )
