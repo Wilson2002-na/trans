@@ -13,7 +13,7 @@ st.title("🎬 AI English → Tamil Video Dubber")
 
 # ElevenLabs
 client = ElevenLabs(
-    api_key="YOUR_API_KEY"
+    api_key="sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7"
 )
 
 
