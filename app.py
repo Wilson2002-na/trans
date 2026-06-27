@@ -4,6 +4,7 @@ import os
 import tempfile
 import atexit
 import shutil
+import gc
 
 from moviepy import VideoFileClip, AudioFileClip
 from deep_translator import GoogleTranslator
@@ -11,18 +12,33 @@ from elevenlabs.client import ElevenLabs
 
 
 st.title("🎬 AI English → Tamil Video Dubber")
-st.write("Upload a video file to get a Tamil dubbed version")
+st.write("Upload video and convert English speech to Tamil voice")
 
 
-# ElevenLabs API
+# ---------------- Whisper cache ----------------
+
+@st.cache_resource
+def load_whisper():
+
+    return whisper.load_model("small")
+
+
+model = load_whisper()
+
+
+
+# ---------------- ElevenLabs ----------------
+
 client = ElevenLabs(
-    api_key="sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7"
+    api_key=st.secrets["sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7"]
 )
+
 
 VOICE_ID = "CwhRBWXzGAHq8TQ4Fs17"
 
 
-# ── Session-state setup ─────────────────────────────────────
+
+# ---------------- Session ----------------
 
 if "tmpdir" not in st.session_state:
     st.session_state.tmpdir = None
@@ -33,49 +49,63 @@ if "output_path" not in st.session_state:
 if "download_ready" not in st.session_state:
     st.session_state.download_ready = False
 
-if "download_clicked" not in st.session_state:
-    st.session_state.download_clicked = False
 
 
+# ---------------- Cleanup ----------------
 
 def cleanup_tmpdir(path):
 
-    if path and os.path.isdir(path):
-        shutil.rmtree(path, ignore_errors=True)
+    if path and os.path.exists(path):
+
+        shutil.rmtree(
+            path,
+            ignore_errors=True
+        )
 
 
 
-def _atexit_cleanup():
+@atexit.register
+def cleanup():
+
     cleanup_tmpdir(
         st.session_state.get("tmpdir")
     )
 
 
-atexit.register(_atexit_cleanup)
+
+
+# ---------------- Translation ----------------
+
+
+translator = GoogleTranslator(
+    source="en",
+    target="ta"
+)
 
 
 
-# cleanup after download
+def translate_long_text(text):
 
-if st.session_state.download_clicked:
+    result = []
 
-    cleanup_tmpdir(
-        st.session_state.tmpdir
-    )
+    for i in range(0,len(text),4000):
 
-    st.session_state.tmpdir = None
-    st.session_state.output_path = None
-    st.session_state.download_ready = False
-    st.session_state.download_clicked = False
+        part = text[i:i+4000]
 
-    st.success("Temporary files deleted")
+        result.append(
+            translator.translate(part)
+        )
 
+    return " ".join(result)
 
 
-# upload
+
+
+# ---------------- Upload ----------------
+
 
 uploaded = st.file_uploader(
-    "Upload Video File",
+    "Upload video",
     type=[
         "mp4",
         "mkv",
@@ -84,6 +114,7 @@ uploaded = st.file_uploader(
         "webm"
     ]
 )
+
 
 
 
@@ -103,12 +134,16 @@ if st.button("Start Tamil Dubbing"):
         st.session_state.tmpdir = tmpdir
 
 
-        ext = os.path.splitext(uploaded.name)[1]
+
+        ext = os.path.splitext(
+            uploaded.name
+        )[1]
+
 
 
         video_path = os.path.join(
             tmpdir,
-            "video" + ext
+            "video"+ext
         )
 
 
@@ -125,6 +160,12 @@ if st.button("Start Tamil Dubbing"):
 
 
 
+        video = None
+        video_audio = None
+        final = None
+
+
+
         try:
 
 
@@ -134,19 +175,16 @@ if st.button("Start Tamil Dubbing"):
 
 
             with open(video_path,"wb") as f:
-                f.write(uploaded.read())
+
+                f.write(
+                    uploaded.read()
+                )
 
 
-            st.success("Video saved")
 
+            # speech recognition
 
-
-            # whisper
-
-            st.info("Converting speech to text...")
-
-
-            model = whisper.load_model("small")
+            st.info("Converting speech...")
 
 
             result = model.transcribe(
@@ -156,61 +194,60 @@ if st.button("Start Tamil Dubbing"):
             )
 
 
-            english_segments = [
-                x["text"]
-                for x in result["segments"]
-            ]
-
 
             english_text = " ".join(
-                english_segments
+                [
+                    x["text"]
+                    for x in result["segments"]
+                ]
             )
 
 
-            st.success("Transcript done")
+
+            st.success(
+                "Transcript completed"
+            )
 
 
 
-            with st.expander("English Transcript"):
+            with st.expander(
+                "English Transcript"
+            ):
+
                 st.write(
                     english_text
                 )
 
 
 
-            # translate
+            # translation
 
-            st.info("Translating English → Tamil")
-
-
-            translator = GoogleTranslator(
-                source="en",
-                target="ta"
+            st.info(
+                "Translating to Tamil..."
             )
 
 
-            tamil_text = translator.translate(
+
+            tamil_text = translate_long_text(
                 english_text
             )
 
 
-            st.success("Tamil translation done")
+
+            st.success(
+                "Tamil translation completed"
+            )
 
 
 
-            with st.expander("Tamil Text"):
-                st.write(
-                    tamil_text
-                )
+            # elevenlabs
+
+            st.info(
+                "Generating Tamil voice..."
+            )
 
 
-
-            # ElevenLabs voice
-
-            st.info("Generating Tamil AI voice...")
-
-
-            audio = client.text_to_speech.convert(
+            tts_audio = client.text_to_speech.convert(
 
                 voice_id=VOICE_ID,
 
@@ -224,22 +261,27 @@ if st.button("Start Tamil Dubbing"):
 
             with open(audio_path,"wb") as f:
 
-                for chunk in audio:
+
+                for chunk in tts_audio:
+
                     f.write(chunk)
 
 
 
             st.success(
-                "Tamil voice created"
+                "Voice created"
             )
 
 
 
-            # merge video + audio
+
+            # merge
+
 
             st.info(
-                "Creating dubbed video..."
+                "Creating final video..."
             )
+
 
 
             video = VideoFileClip(
@@ -247,22 +289,26 @@ if st.button("Start Tamil Dubbing"):
             )
 
 
-            audio = AudioFileClip(
+            video_audio = AudioFileClip(
                 audio_path
             )
 
 
-            if audio.duration > video.duration:
 
-                audio = audio.subclipped(
+            if video_audio.duration > video.duration:
+
+
+                video_audio = video_audio.subclipped(
                     0,
                     video.duration
                 )
 
 
+
             final = video.with_audio(
-                audio
+                video_audio
             )
+
 
 
             final.write_videofile(
@@ -274,17 +320,13 @@ if st.button("Start Tamil Dubbing"):
                 audio_codec="aac",
 
                 logger=None
+
             )
 
 
 
-            video.close()
-            audio.close()
-
-
-
             st.success(
-                "Tamil Dubbed Video Ready 🎉"
+                "Tamil video ready 🎉"
             )
 
 
@@ -302,9 +344,30 @@ if st.button("Start Tamil Dubbing"):
                 f"Error: {e}"
             )
 
-            cleanup_tmpdir(
-                tmpdir
-            )
+
+
+        finally:
+
+
+            try:
+
+                if final:
+                    final.close()
+
+                if video:
+                    video.close()
+
+                if video_audio:
+                    video_audio.close()
+
+
+            except:
+
+                pass
+
+
+
+            gc.collect()
 
 
 
@@ -317,45 +380,32 @@ if st.button("Start Tamil Dubbing"):
 
 
 
-
-# download
-
-if (
-    st.session_state.download_ready
-    and st.session_state.output_path
-):
+# ---------------- Download ----------------
 
 
-    if os.path.exists(
-        st.session_state.output_path
-    ):
+if st.session_state.download_ready:
 
 
-        with open(
-            st.session_state.output_path,
-            "rb"
-        ) as f:
+    path = st.session_state.output_path
 
 
-            video_bytes = f.read()
+    if os.path.exists(path):
+
+
+        with open(path,"rb") as f:
+
+            data = f.read()
 
 
 
-        clicked = st.download_button(
+        st.download_button(
 
             "⬇️ Download Tamil Dubbed Video",
 
-            video_bytes,
+            data,
 
             file_name="Tamil_Dubbed.mp4",
 
             mime="video/mp4"
 
         )
-
-
-        if clicked:
-
-            st.session_state.download_clicked = True
-
-            st.rerun()
