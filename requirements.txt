@@ -1,9 +1,52 @@
-streamlit
+# Streamlit
+streamlit>=1.46.0
+
+# AI Speech Recognition
 openai-whisper
-moviepy
-deep-translator
-elevenlabs
-ffmpeg-python
-opencv-python
+
+# PyTorch (Install the correct version for your system)
 torch
 torchvision
+torchaudio
+
+# Translation
+deep-translator
+
+# ElevenLabs
+elevenlabs
+
+# Video Processing
+moviepy
+imageio
+imageio-ffmpeg
+ffmpeg-python
+opencv-python
+opencv-contrib-python
+
+# Audio
+librosa
+soundfile
+pydub
+scipy
+numpy
+
+# Face Detection
+face-alignment
+dlib
+
+# Wav2Lip Dependencies
+tqdm
+numba
+resampy
+matplotlib
+scikit-image
+scikit-learn
+Pillow
+PyYAML
+gdown
+
+# Utilities
+requests
+protobuf
+decorator
+typing_extensions
