@@ -9,7 +9,7 @@ from deep_translator import GoogleTranslator
 from elevenlabs.client import ElevenLabs
 from moviepy import VideoFileClip, AudioFileClip
 
-st.title("AI English → Tamil Video Dubber")
+st.title("AI English → Tamil Video Dubber (DSA Version)")
 
 client = ElevenLabs(api_key="sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7")
 VOICE_ID="CwhRBWXzGAHq8TQ4Fs17"
