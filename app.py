@@ -11,7 +11,7 @@ from moviepy import VideoFileClip, AudioFileClip
 
 st.title("AI English → Tamil Video Dubber (DSA Version)")
 
-client = ElevenLabs(api_key="api_key = os.environ.get("sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7")
+client = ElevenLabs(api_key=api_key=os.environ.get("sk_155bd03b99285b4dfecfb19008f1f347bc5e113f446329e7")
 VOICE_ID="CwhRBWXzGAHq8TQ4Fs17"
 
 if "tmpdir" not in st.session_state:
