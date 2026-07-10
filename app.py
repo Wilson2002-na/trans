@@ -3,4 +3,4 @@ import streamlit as st
 uploaded=st.fileuploader(
 "upload a video",
 type=["mp4","avi","mov","mkv","webm"]
-")
+)
