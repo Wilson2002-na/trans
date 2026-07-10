@@ -5,4 +5,4 @@ uploaded=st.file_uploader(
 type=["mp4","avi","mov","mkv","webm"]
 )
 if uploaded is not None:
-  st.video(uploaded_video)
+  st.video(uploaded)
