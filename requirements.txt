@@ -1,8 +1,0 @@
-streamlit>=1.40
-faster-whisper>=1.1
-requests>=2.31
-python-dotenv>=1.0
-pydub>=0.25.1
-soundfile>=0.12
-numpy>=1.26
-deep-translator>=1.11
